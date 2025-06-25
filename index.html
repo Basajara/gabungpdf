@@ -1,0 +1,363 @@
+<html lang="id" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gabungkan PDF - Aplikasi Penggabungan PDF</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/downloadjs@1.4.7/download.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .drag-area.active {
+            background-color: #ebf8ff;
+            border-color: #3b82f6;
+        }
+        .file-item:hover {
+            background-color: #dbeafe;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-3xl w-full bg-white rounded-2xl shadow-lg p-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8 text-center">Gabungkan File PDF Anda</h1>
+
+        <div id="dragArea" class="drag-area rounded-lg p-8 text-center mb-6 cursor-pointer border-2 border-dashed border-gray-300 transition-colors duration-300">
+            <div class="flex flex-col items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-blue-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" role="img" aria-label="Ikon upload file PDF">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <p class="text-lg font-medium text-gray-700 mb-1">Tarik dan lepas file PDF di sini</p>
+                <p class="text-sm text-gray-500 mb-4">atau</p>
+                <label for="fileInput" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300 cursor-pointer select-none">
+                    Pilih File PDF
+                </label>
+                <input type="file" id="fileInput" accept=".pdf" multiple class="hidden" aria-label="Pilih file PDF" />
+            </div>
+        </div>
+
+        <div id="fileList" class="mb-6 max-h-64 overflow-y-auto hidden" aria-live="polite" aria-atomic="true">
+            <h2 class="text-lg font-semibold text-gray-800 mb-3">File yang Dipilih:</h2>
+            <ul id="selectedFiles" class="space-y-2" role="list"></ul>
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-center gap-4">
+            <button id="mergeBtn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-8 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled aria-disabled="true" aria-label="Gabungkan PDF">
+                Gabungkan PDF
+            </button>
+            <button id="resetBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-8 rounded-lg transition duration-300" aria-label="Reset aplikasi">
+                Reset
+            </button>
+        </div>
+
+        <div id="progressContainer" class="mt-6 hidden" role="region" aria-live="polite" aria-atomic="true" aria-label="Progress penggabungan PDF">
+            <div class="flex justify-between mb-1">
+                <span class="text-sm font-medium text-blue-700">Memproses...</span>
+                <span id="progressText" class="text-sm font-medium text-blue-700">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div id="resultContainer" class="mt-6 hidden" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="p-4 bg-green-100 rounded-lg flex items-center">
+                <svg class="h-5 w-5 text-green-600 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" role="img" aria-label="Ikon sukses">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <p class="ml-3 text-sm font-medium text-green-800">PDF berhasil digabungkan!</p>
+            </div>
+            <div class="mt-4 flex justify-center">
+                <button id="downloadBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300 flex items-center" aria-label="Unduh PDF hasil gabungan">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" role="img" aria-label="Ikon unduh">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Unduh PDF
+                </button>
+            </div>
+        </div>
+
+        <div class="mt-8 bg-white rounded-xl shadow-lg overflow-hidden p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Cara Menggunakan</h2>
+            <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                <li>Pilih file PDF (hingga 100 file) dengan mengklik tombol "Pilih File PDF" atau tarik dan lepas file ke area yang ditentukan.</li>
+                <li>Atur urutan file dengan menyeret file ke posisi yang diinginkan dalam daftar.</li>
+                <li>Klik tombol "Gabungkan PDF" untuk memulai proses penggabungan.</li>
+                <li>Setelah selesai, klik tombol "Unduh PDF" untuk mengunduh file PDF yang sudah digabungkan.</li>
+            </ol>
+        </div>
+
+        <div class="text-center mt-8 text-gray-500 text-sm">
+            <p>Aplikasi ini memproses file PDF secara lokal di browser Anda. File Anda tidak diunggah ke server mana pun.</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            const dragArea = document.getElementById('dragArea');
+            const fileList = document.getElementById('fileList');
+            const selectedFiles = document.getElementById('selectedFiles');
+            const mergeBtn = document.getElementById('mergeBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const resultContainer = document.getElementById('resultContainer');
+            const downloadBtn = document.getElementById('downloadBtn');
+
+            let pdfFiles = [];
+            let mergedPdfBytes = null;
+
+            // Handle file selection
+            fileInput.addEventListener('change', handleFileSelection);
+
+            // Handle drag and drop
+            dragArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dragArea.classList.add('active');
+            });
+
+            dragArea.addEventListener('dragleave', () => {
+                dragArea.classList.remove('active');
+            });
+
+            dragArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dragArea.classList.remove('active');
+                const files = e.dataTransfer.files;
+                handleFiles(files);
+            });
+
+            dragArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // Reset button
+            resetBtn.addEventListener('click', resetApp);
+
+            // Merge button
+            mergeBtn.addEventListener('click', mergePDFs);
+
+            // Download button
+            downloadBtn.addEventListener('click', downloadMergedPDF);
+
+            function handleFileSelection(e) {
+                const files = e.target.files;
+                handleFiles(files);
+            }
+
+            function handleFiles(files) {
+                const pdfFilesArray = Array.from(files).filter(file => file.type === 'application/pdf');
+
+                if (pdfFilesArray.length === 0) {
+                    alert('Silakan pilih file PDF.');
+                    return;
+                }
+
+                if (pdfFiles.length + pdfFilesArray.length > 100) {
+                    alert('Maksimal 100 file PDF yang dapat digabungkan sekaligus.');
+                    return;
+                }
+
+                pdfFiles = [...pdfFiles, ...pdfFilesArray];
+                updateFileList();
+
+                if (pdfFiles.length >= 2) {
+                    mergeBtn.disabled = false;
+                    mergeBtn.setAttribute('aria-disabled', 'false');
+                }
+
+                fileList.classList.remove('hidden');
+            }
+
+            function updateFileList() {
+                selectedFiles.innerHTML = '';
+
+                pdfFiles.forEach((file, index) => {
+                    const fileItem = document.createElement('li');
+                    fileItem.className = 'file-item flex items-center justify-between bg-blue-50 p-3 rounded-lg';
+                    fileItem.setAttribute('draggable', 'true');
+                    fileItem.setAttribute('aria-grabbed', 'false');
+                    fileItem.setAttribute('role', 'option');
+                    fileItem.setAttribute('tabindex', '0');
+                    fileItem.innerHTML = `
+                        <div class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" role="img" aria-label="Ikon file PDF">
+                                <path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" />
+                            </svg>
+                            <span class="text-sm font-medium text-gray-700 truncate max-w-xs">${file.name}</span>
+                        </div>
+                        <button class="remove-btn text-gray-500 hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-400 rounded" data-index="${index}" aria-label="Hapus file ${file.name}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" role="img" aria-label="Ikon hapus">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    `;
+                    selectedFiles.appendChild(fileItem);
+
+                    // Add remove button functionality
+                    fileItem.querySelector('.remove-btn').addEventListener('click', function() {
+                        const idx = parseInt(this.getAttribute('data-index'));
+                        pdfFiles.splice(idx, 1);
+                        updateFileList();
+
+                        if (pdfFiles.length < 2) {
+                            mergeBtn.disabled = true;
+                            mergeBtn.setAttribute('aria-disabled', 'true');
+                        }
+
+                        if (pdfFiles.length === 0) {
+                            fileList.classList.add('hidden');
+                        }
+                    });
+                });
+
+                // Enable drag and drop sorting
+                enableDragSort();
+            }
+
+            function enableDragSort() {
+                let dragSrcEl = null;
+
+                function handleDragStart(e) {
+                    dragSrcEl = this;
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/html', this.innerHTML);
+                    this.classList.add('opacity-50');
+                    this.setAttribute('aria-grabbed', 'true');
+                }
+
+                function handleDragOver(e) {
+                    if (e.preventDefault) {
+                        e.preventDefault();
+                    }
+                    e.dataTransfer.dropEffect = 'move';
+                    return false;
+                }
+
+                function handleDragEnter() {
+                    this.classList.add('bg-blue-100');
+                }
+
+                function handleDragLeave() {
+                    this.classList.remove('bg-blue-100');
+                }
+
+                function handleDrop(e) {
+                    if (e.stopPropagation) {
+                        e.stopPropagation();
+                    }
+                    if (dragSrcEl !== this) {
+                        const srcIndex = Array.from(selectedFiles.children).indexOf(dragSrcEl);
+                        const destIndex = Array.from(selectedFiles.children).indexOf(this);
+
+                        // Swap elements in pdfFiles array
+                        const temp = pdfFiles[srcIndex];
+                        pdfFiles.splice(srcIndex, 1);
+                        pdfFiles.splice(destIndex, 0, temp);
+
+                        updateFileList();
+                    }
+                    return false;
+                }
+
+                function handleDragEnd() {
+                    this.classList.remove('opacity-50');
+                    this.setAttribute('aria-grabbed', 'false');
+                    Array.from(selectedFiles.children).forEach(item => {
+                        item.classList.remove('bg-blue-100');
+                    });
+                }
+
+                const items = selectedFiles.querySelectorAll('li.file-item');
+                items.forEach(function(item) {
+                    item.addEventListener('dragstart', handleDragStart, false);
+                    item.addEventListener('dragenter', handleDragEnter, false);
+                    item.addEventListener('dragover', handleDragOver, false);
+                    item.addEventListener('dragleave', handleDragLeave, false);
+                    item.addEventListener('drop', handleDrop, false);
+                    item.addEventListener('dragend', handleDragEnd, false);
+                });
+            }
+
+            async function mergePDFs() {
+                if (pdfFiles.length < 2) {
+                    alert('Pilih setidaknya 2 file PDF untuk digabungkan.');
+                    return;
+                }
+
+                try {
+                    mergeBtn.disabled = true;
+                    mergeBtn.setAttribute('aria-disabled', 'true');
+                    progressContainer.classList.remove('hidden');
+                    resultContainer.classList.add('hidden');
+                    progressBar.style.width = '0%';
+                    progressText.textContent = '0%';
+
+                    const { PDFDocument } = PDFLib;
+                    const mergedPdf = await PDFDocument.create();
+
+                    for (let i = 0; i < pdfFiles.length; i++) {
+                        const file = pdfFiles[i];
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdfDoc = await PDFDocument.load(arrayBuffer);
+                        const pages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+
+                        pages.forEach(page => {
+                            mergedPdf.addPage(page);
+                        });
+
+                        // Update progress
+                        const progress = Math.round(((i + 1) / pdfFiles.length) * 100);
+                        progressBar.style.width = `${progress}%`;
+                        progressText.textContent = `${progress}%`;
+                        progressBar.setAttribute('aria-valuenow', progress);
+                        await new Promise(r => setTimeout(r, 100)); // slight delay for UI update
+                    }
+
+                    mergedPdfBytes = await mergedPdf.save();
+
+                    // Show result
+                    setTimeout(() => {
+                        progressContainer.classList.add('hidden');
+                        resultContainer.classList.remove('hidden');
+                    }, 500);
+
+                } catch (error) {
+                    console.error('Error merging PDFs:', error);
+                    alert('Terjadi kesalahan saat menggabungkan PDF. Silakan coba lagi.');
+                    mergeBtn.disabled = false;
+                    mergeBtn.setAttribute('aria-disabled', 'false');
+                    progressContainer.classList.add('hidden');
+                }
+            }
+
+            function downloadMergedPDF() {
+                if (mergedPdfBytes) {
+                    const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+                    const fileName = `Gabungan_PDF_${new Date().toISOString().slice(0, 10)}.pdf`;
+                    download(blob, fileName, 'application/pdf');
+                }
+            }
+
+            function resetApp() {
+                pdfFiles = [];
+                mergedPdfBytes = null;
+                fileInput.value = '';
+                selectedFiles.innerHTML = '';
+                fileList.classList.add('hidden');
+                mergeBtn.disabled = true;
+                mergeBtn.setAttribute('aria-disabled', 'true');
+                progressContainer.classList.add('hidden');
+                resultContainer.classList.add('hidden');
+                progressBar.style.width = '0%';
+                progressText.textContent = '0%';
+            }
+        });
+    </script>
+</body>
+</html>
